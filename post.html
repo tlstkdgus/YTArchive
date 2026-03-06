@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>게시글 - YTArchive</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <link href="css/style.css" rel="stylesheet">
+</head>
+<body>
+
+<nav class="navbar navbar-expand-lg sticky-top">
+  <div class="container-fluid px-4">
+    <a class="navbar-brand" href="index.html"><i class="bi bi-film me-1"></i>YTArchive</a>
+    <div class="d-flex gap-2 align-items-center ms-auto">
+      <a href="community.html" class="btn btn-outline-secondary btn-sm"><i class="bi bi-arrow-left me-1"></i>목록</a>
+      <div id="guestNav" class="d-flex gap-2">
+        <a href="login.html" class="btn btn-outline-primary btn-sm">로그인</a>
+      </div>
+      <div id="memberNav" class="d-none dropdown">
+        <button class="btn btn-outline-secondary btn-sm dropdown-toggle" data-bs-toggle="dropdown">
+          <i class="bi bi-person-circle me-1"></i><span id="userNickname"></span>
+        </button>
+        <ul class="dropdown-menu dropdown-menu-end">
+          <li><a class="dropdown-item" href="dashboard.html">대시보드</a></li>
+          <li><a class="dropdown-item" href="mypage.html">마이페이지</a></li>
+          <li><a class="dropdown-item text-danger" href="#" onclick="Auth.logout()">로그아웃</a></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</nav>
+
+<div class="container py-4" style="max-width:800px">
+
+  <!-- Post -->
+  <div class="bg-white rounded-4 border border-light p-4 mb-4" id="postBody">
+    <div class="placeholder-glow">
+      <div class="placeholder col-8 mb-2"></div>
+      <div class="placeholder col-4"></div>
+    </div>
+  </div>
+
+  <!-- Comments -->
+  <div class="bg-white rounded-4 border border-light p-4">
+    <h6 class="fw-bold mb-3"><i class="bi bi-chat me-2"></i>댓글 <span id="cmtCnt">0</span>개</h6>
+    <div id="cmtList" class="mb-3"></div>
+
+    <!-- 댓글 작성 -->
+    <div id="cmtWriteArea">
+      <div class="d-flex gap-2 align-items-start">
+        <div class="rounded-circle bg-primary text-white d-flex align-items-center justify-content-center flex-shrink-0"
+             style="width:36px;height:36px;font-size:.85rem;font-weight:700" id="cmtAvatar">?</div>
+        <div class="flex-grow-1">
+          <textarea id="cmtInput" class="form-control form-control-sm" rows="2"
+            placeholder="댓글을 입력하세요..." maxlength="500"></textarea>
+          <div class="d-flex justify-content-between mt-1">
+            <span class="text-muted small"><span id="cmtLen">0</span>/500</span>
+            <button class="btn btn-primary btn-sm" id="saveCmtBtn">댓글 작성</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div id="cmtLoginPrompt" class="d-none text-center text-muted small py-2">
+      <a href="login.html" class="text-primary fw-semibold">로그인</a>하고 댓글을 작성해보세요.
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script src="js/storage.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/app.js"></script>
+<script>
+const session = Auth.getSession();
+initHeader(session);
+
+const postId = getParam('id');
+if (!postId) { location.href = 'community.html'; throw new Error(); }
+
+let post = DB.getPostById(postId);
+if (!post) { alert('게시글을 찾을 수 없습니다.'); location.href = 'community.html'; throw new Error(); }
+
+// ── Render post ───────────────────────────────────────────
+function renderPost() {
+  post = DB.getPostById(postId);
+  const author  = DB.getUserById(post.userId);
+  const video   = post.videoId ? DB.getVideoById(post.videoId) : null;
+  const liked   = session && (post.likes||[]).includes(session.userId);
+  const bkmd    = session && (post.bookmarks||[]).includes(session.userId);
+  const isOwner = session && session.userId === post.userId;
+  const tags    = (post.tags||[]).map(t => `<span class="tag-badge me-1">${escapeHtml(t)}</span>`).join('');
+
+  document.title = post.title + ' - YTArchive';
+
+  document.getElementById('postBody').innerHTML = `
+    <div class="mb-3">
+      ${tags ? `<div class="mb-2">${tags}</div>` : ''}
+      <h4 class="fw-bold mb-1">${escapeHtml(post.title)}</h4>
+      <div class="text-muted small d-flex align-items-center gap-2 flex-wrap">
+        <span><i class="bi bi-person-circle me-1"></i>${escapeHtml(author?.nickname || '알 수 없음')}</span>
+        <span>·</span><span>${formatDate(post.createdAt)}</span>
+        ${post.updatedAt ? '<span class="text-muted">(수정됨)</span>' : ''}
+      </div>
+    </div>
+
+    ${video ? `
+    <div class="d-flex gap-3 align-items-center p-3 bg-light rounded-3 mb-3">
+      <img src="${escapeHtml(video.thumbnail)}" alt="" style="width:100px;height:56px;object-fit:cover;border-radius:6px;flex-shrink:0">
+      <div class="min-w-0">
+        <div class="fw-semibold small text-truncate">${escapeHtml(video.title)}</div>
+        <div class="text-muted small">${escapeHtml(video.channel)}</div>
+        <a href="video.html?id=${video.id}" class="btn btn-sm btn-outline-primary mt-1 py-0">
+          <i class="bi bi-play me-1"></i>아카이브 보기
+        </a>
+      </div>
+    </div>` : ''}
+
+    <div class="mb-4" style="white-space:pre-wrap;line-height:1.7">${escapeHtml(post.content)}</div>
+
+    <hr>
+    <div class="d-flex align-items-center gap-3 flex-wrap">
+      <button class="btn btn-sm ${liked ? 'btn-danger' : 'btn-outline-danger'}" id="likeBtn" onclick="toggleLike()">
+        <i class="bi ${liked ? 'bi-heart-fill' : 'bi-heart'} me-1"></i>좋아요 ${(post.likes||[]).length}
+      </button>
+      ${session ? `
+      <button class="btn btn-sm ${bkmd ? 'btn-primary' : 'btn-outline-primary'}" id="bkBtn" onclick="toggleBookmark()">
+        <i class="bi ${bkmd ? 'bi-bookmark-fill' : 'bi-bookmark'} me-1"></i>${bkmd ? '북마크됨' : '북마크'}
+      </button>` : ''}
+      <div class="ms-auto d-flex gap-2">
+        ${isOwner ? `
+        <a href="write.html?id=${postId}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-pencil me-1"></i>수정</a>
+        <button class="btn btn-sm btn-outline-danger" onclick="deletePost()"><i class="bi bi-trash me-1"></i>삭제</button>
+        ` : ''}
+      </div>
+    </div>`;
+}
+
+function toggleLike() {
+  if (!session) { location.href = 'login.html'; return; }
+  DB.toggleLike(postId, session.userId);
+  renderPost();
+}
+
+function toggleBookmark() {
+  if (!session) return;
+  const p = DB.toggleBookmark(postId, session.userId);
+  const bkmd = (p.bookmarks||[]).includes(session.userId);
+  showToast(bkmd ? '북마크에 추가했습니다.' : '북마크에서 제거했습니다.', bkmd ? 'success' : 'info');
+  renderPost();
+}
+
+function deletePost() {
+  showConfirm('이 게시글을 삭제하시겠습니까?', () => {
+    DB.deletePost(postId);
+    showToast('게시글이 삭제되었습니다.', 'danger');
+    setTimeout(() => location.href = 'community.html', 800);
+  });
+}
+
+// ── Comments ──────────────────────────────────────────────
+function renderComments() {
+  const cmts = DB.getComments(postId);
+  document.getElementById('cmtCnt').textContent = cmts.length;
+  const list = document.getElementById('cmtList');
+
+  if (!cmts.length) {
+    list.innerHTML = '<p class="text-muted small text-center py-2">첫 댓글을 작성해보세요!</p>';
+    return;
+  }
+
+  list.innerHTML = cmts.map(c => {
+    const author  = DB.getUserById(c.userId);
+    const isOwner = session && session.userId === c.userId;
+    const initials = (author?.nickname || '?')[0].toUpperCase();
+    return `
+      <div class="comment-item" id="cmt_${c.id}">
+        <div class="d-flex gap-2 align-items-start">
+          <div class="rounded-circle bg-secondary text-white d-flex align-items-center justify-content-center flex-shrink-0"
+               style="width:32px;height:32px;font-size:.8rem;font-weight:700">${escapeHtml(initials)}</div>
+          <div class="flex-grow-1 min-w-0">
+            <div class="d-flex align-items-center gap-2">
+              <span class="fw-semibold small">${escapeHtml(author?.nickname || '알 수 없음')}</span>
+              <span class="text-muted" style="font-size:.7rem">${formatRelative(c.createdAt)}</span>
+            </div>
+            <div id="cmtText_${c.id}" class="small mt-1" style="white-space:pre-wrap">${escapeHtml(c.content)}</div>
+            <textarea id="cmtEdit_${c.id}" class="form-control form-control-sm mt-1 d-none" rows="2">${escapeHtml(c.content)}</textarea>
+            <div id="cmtActions_${c.id}" class="d-none gap-1 mt-1">
+              <button class="btn btn-primary btn-sm" onclick="saveCmtEdit('${c.id}')">저장</button>
+              <button class="btn btn-secondary btn-sm" onclick="cancelCmtEdit('${c.id}')">취소</button>
+            </div>
+          </div>
+          ${isOwner ? `
+          <div class="d-flex gap-1 flex-shrink-0">
+            <button class="btn btn-sm btn-link text-muted p-0" onclick="startCmtEdit('${c.id}')"><i class="bi bi-pencil"></i></button>
+            <button class="btn btn-sm btn-link text-danger p-0" onclick="deleteCmt('${c.id}')"><i class="bi bi-trash"></i></button>
+          </div>` : ''}
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function startCmtEdit(id) {
+  document.getElementById('cmtText_' + id).classList.add('d-none');
+  document.getElementById('cmtEdit_' + id).classList.remove('d-none');
+  document.getElementById('cmtActions_' + id).classList.remove('d-none');
+  document.getElementById('cmtActions_' + id).classList.add('d-flex');
+}
+function cancelCmtEdit(id) {
+  document.getElementById('cmtText_' + id).classList.remove('d-none');
+  document.getElementById('cmtEdit_' + id).classList.add('d-none');
+  document.getElementById('cmtActions_' + id).classList.add('d-none');
+  document.getElementById('cmtActions_' + id).classList.remove('d-flex');
+}
+function saveCmtEdit(id) {
+  const content = document.getElementById('cmtEdit_' + id).value.trim();
+  if (!content) return;
+  DB.updateComment(id, content);
+  renderComments();
+  showToast('댓글이 수정되었습니다.');
+}
+function deleteCmt(id) {
+  showConfirm('댓글을 삭제하시겠습니까?', () => {
+    DB.deleteComment(id); renderComments(); showToast('댓글이 삭제되었습니다.', 'danger');
+  });
+}
+
+// 댓글 쓰기 영역
+if (session) {
+  const avatar = document.getElementById('cmtAvatar');
+  if (avatar) avatar.textContent = session.nickname[0].toUpperCase();
+
+  const cmtInput = document.getElementById('cmtInput');
+  cmtInput.addEventListener('input', () => {
+    document.getElementById('cmtLen').textContent = cmtInput.value.length;
+  });
+
+  document.getElementById('saveCmtBtn').addEventListener('click', () => {
+    const content = cmtInput.value.trim();
+    if (!content) return;
+    DB.addComment({ postId, userId: session.userId, content });
+    cmtInput.value = '';
+    document.getElementById('cmtLen').textContent = '0';
+    renderComments();
+    showToast('댓글이 등록되었습니다.');
+  });
+} else {
+  document.getElementById('cmtWriteArea').classList.add('d-none');
+  document.getElementById('cmtLoginPrompt').classList.remove('d-none');
+}
+
+renderPost();
+renderComments();
+</script>
+</body>
+</html>

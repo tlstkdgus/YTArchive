@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>대시보드 - YTArchive</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <link href="css/style.css" rel="stylesheet">
+</head>
+<body>
+
+<!-- ── Navbar ─────────────────────────────────────────────── -->
+<nav class="navbar navbar-expand-lg sticky-top">
+  <div class="container-fluid px-4">
+    <a class="navbar-brand" href="index.html"><i class="bi bi-film me-1"></i>YTArchive</a>
+    <div class="d-flex align-items-center gap-3 ms-auto">
+      <!-- 검색 -->
+      <div class="search-wrapper d-none d-md-block">
+        <i class="bi bi-search si"></i>
+        <input type="text" id="headerSearch" class="form-control search-input" placeholder="영상 제목 검색..." style="width:220px">
+      </div>
+      <a href="community.html" class="btn btn-outline-secondary btn-sm"><i class="bi bi-people me-1"></i>커뮤니티</a>
+      <div id="guestNav" class="d-none d-flex gap-2">
+        <a href="login.html" class="btn btn-outline-primary btn-sm">로그인</a>
+      </div>
+      <div id="memberNav" class="d-none dropdown">
+        <button class="btn btn-outline-secondary btn-sm dropdown-toggle" data-bs-toggle="dropdown">
+          <i class="bi bi-person-circle me-1"></i><span id="userNickname"></span>
+        </button>
+        <ul class="dropdown-menu dropdown-menu-end">
+          <li><a class="dropdown-item" href="themes.html"><i class="bi bi-palette me-2"></i>테마 관리</a></li>
+          <li><a class="dropdown-item" href="mypage.html"><i class="bi bi-person me-2"></i>마이페이지</a></li>
+          <li><hr class="dropdown-divider"></li>
+          <li><a class="dropdown-item text-danger" href="#" onclick="Auth.logout()"><i class="bi bi-box-arrow-right me-2"></i>로그아웃</a></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</nav>
+
+<!-- ── Main layout ─────────────────────────────────────────── -->
+<div class="d-flex">
+
+  <!-- Sidebar -->
+  <aside class="sidebar py-3 d-none d-md-flex flex-column">
+    <div class="sidebar-label">내 아카이브</div>
+    <nav class="nav flex-column">
+      <a class="nav-link active" href="#" data-theme="" id="navAll">
+        <i class="bi bi-collection"></i>전체
+        <span class="sidebar-count" id="cntAll">0</span>
+      </a>
+      <a class="nav-link" href="#" data-theme="__fav__" id="navFav">
+        <i class="bi bi-star"></i>즐겨찾기
+        <span class="sidebar-count" id="cntFav">0</span>
+      </a>
+      <a class="nav-link" href="#" data-theme="__none__" id="navNone">
+        <i class="bi bi-folder2-open"></i>미분류
+        <span class="sidebar-count" id="cntNone">0</span>
+      </a>
+    </nav>
+    <div class="sidebar-label">MY THEMES</div>
+    <nav class="nav flex-column" id="themeNav"></nav>
+    <div class="px-3 mt-2">
+      <a href="themes.html" class="btn btn-outline-primary btn-sm w-100">
+        <i class="bi bi-plus me-1"></i>새 테마 만들기
+      </a>
+    </div>
+  </aside>
+
+  <!-- Main content -->
+  <main class="flex-grow-1 p-4">
+    <!-- Toolbar -->
+    <div class="d-flex align-items-center gap-2 mb-4 flex-wrap">
+      <h5 class="mb-0 fw-bold me-auto" id="pageTitle">전체 영상</h5>
+      <!-- 정렬 -->
+      <select class="form-select form-select-sm" style="width:auto" id="sortSelect">
+        <option value="newest">최신순</option>
+        <option value="oldest">오래된순</option>
+        <option value="title">제목순</option>
+      </select>
+      <!-- 뷰 전환 -->
+      <div class="btn-group btn-group-sm">
+        <button class="btn btn-outline-secondary active" id="btnCard" title="카드 보기">
+          <i class="bi bi-grid-3x3-gap"></i>
+        </button>
+        <button class="btn btn-outline-secondary" id="btnList" title="목록 보기">
+          <i class="bi bi-list-ul"></i>
+        </button>
+      </div>
+      <!-- 영상 추가 -->
+      <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#addVideoModal">
+        <i class="bi bi-plus-lg me-1"></i>영상 추가
+      </button>
+    </div>
+
+    <!-- Video grid / list -->
+    <div id="videoGrid" class="row g-3"></div>
+    <div id="videoList" class="d-flex flex-column gap-2 d-none"></div>
+    <div id="emptyState" class="empty-state d-none">
+      <div class="empty-icon">📭</div>
+      <h5 class="fw-semibold">저장된 영상이 없습니다</h5>
+      <p class="text-muted">유튜브 URL을 붙여넣어 첫 영상을 아카이브해보세요!</p>
+      <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addVideoModal">
+        <i class="bi bi-plus me-1"></i>영상 추가하기
+      </button>
+    </div>
+  </main>
+</div>
+
+<!-- ── Add Video Modal ────────────────────────────────────── -->
+<div class="modal fade" id="addVideoModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content rounded-4">
+      <div class="modal-header border-0 pb-0">
+        <h5 class="modal-title fw-bold"><i class="bi bi-plus-circle me-2 text-primary"></i>영상 추가</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-3">
+          <label class="form-label fw-semibold">유튜브 URL <span class="text-danger">*</span></label>
+          <input type="url" id="videoUrl" class="form-control" placeholder="https://www.youtube.com/watch?v=...">
+          <div class="form-text">youtube.com 또는 youtu.be URL을 입력하세요</div>
+        </div>
+        <!-- 미리보기 -->
+        <div id="videoPreview" class="d-none mb-3 p-3 bg-light rounded-3">
+          <div class="d-flex gap-3 align-items-center">
+            <img id="prevThumb" src="" alt="" style="width:80px;height:45px;object-fit:cover;border-radius:6px;">
+            <div class="min-w-0">
+              <div class="fw-semibold small" id="prevTitle" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></div>
+              <div class="text-muted small" id="prevChannel"></div>
+            </div>
+          </div>
+        </div>
+        <div class="mb-3">
+          <label class="form-label fw-semibold">테마 선택 <span class="text-muted fw-normal">(선택)</span></label>
+          <div id="themeCheckboxes" class="d-flex flex-wrap gap-2"></div>
+        </div>
+        <div class="mb-3">
+          <label class="form-label fw-semibold">공개 여부</label>
+          <div class="d-flex gap-3">
+            <div class="form-check">
+              <input class="form-check-input" type="radio" name="visibility" id="visPublic" value="public">
+              <label class="form-check-label" for="visPublic"><i class="bi bi-globe me-1"></i>공개</label>
+            </div>
+            <div class="form-check">
+              <input class="form-check-input" type="radio" name="visibility" id="visPrivate" value="private" checked>
+              <label class="form-check-label" for="visPrivate"><i class="bi bi-lock me-1"></i>비공개</label>
+            </div>
+          </div>
+        </div>
+        <div id="addVideoAlert" class="alert alert-danger d-none"></div>
+      </div>
+      <div class="modal-footer border-0 pt-0">
+        <button class="btn btn-secondary" data-bs-dismiss="modal">취소</button>
+        <button class="btn btn-primary" id="fetchMetaBtn">
+          <i class="bi bi-search me-1"></i>정보 가져오기
+        </button>
+        <button class="btn btn-success d-none" id="saveVideoBtn">
+          <i class="bi bi-check-lg me-1"></i>저장
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Edit Video Modal ───────────────────────────────────── -->
+<div class="modal fade" id="editVideoModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content rounded-4">
+      <div class="modal-header border-0 pb-0">
+        <h5 class="modal-title fw-bold"><i class="bi bi-pencil me-2 text-primary"></i>영상 수정</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="editVideoId">
+        <div class="mb-3">
+          <label class="form-label fw-semibold">테마</label>
+          <div id="editThemeCheckboxes" class="d-flex flex-wrap gap-2"></div>
+        </div>
+        <div class="mb-3">
+          <label class="form-label fw-semibold">공개 여부</label>
+          <div class="d-flex gap-3">
+            <div class="form-check">
+              <input class="form-check-input" type="radio" name="editVisibility" id="editVisPublic" value="public">
+              <label class="form-check-label" for="editVisPublic">공개</label>
+            </div>
+            <div class="form-check">
+              <input class="form-check-input" type="radio" name="editVisibility" id="editVisPrivate" value="private">
+              <label class="form-check-label" for="editVisPrivate">비공개</label>
+            </div>
+          </div>
+        </div>
+        <div class="mb-3">
+          <label class="form-label fw-semibold">즐겨찾기</label>
+          <div class="form-check">
+            <input class="form-check-input" type="checkbox" id="editFav">
+            <label class="form-check-label" for="editFav">즐겨찾기에 추가</label>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer border-0 pt-0">
+        <button class="btn btn-secondary" data-bs-dismiss="modal">취소</button>
+        <button class="btn btn-primary" id="saveEditBtn">저장</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script src="js/storage.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/app.js"></script>
+<script>
+const session = Auth.requireAuth();
+if (!session) throw new Error('redirect');
+
+initHeader(session);
+
+let currentFilter = '';  // '' = all, '__fav__', '__none__', or themeId
+let currentSort   = 'newest';
+let viewMode      = localStorage.getItem('yta_view') || 'card';
+let fetchedMeta   = null;
+
+// ── Init ──────────────────────────────────────────────────
+function init() {
+  renderSidebar();
+  setViewMode(viewMode);
+  renderVideos();
+}
+
+// ── Sidebar ───────────────────────────────────────────────
+function renderSidebar() {
+  const videos = DB.getVideos(session.userId);
+  const themes = DB.getThemes(session.userId);
+
+  document.getElementById('cntAll').textContent  = videos.length;
+  document.getElementById('cntFav').textContent  = videos.filter(v => v.isFav).length;
+  document.getElementById('cntNone').textContent = videos.filter(v => !v.themes || !v.themes.length).length;
+
+  const nav = document.getElementById('themeNav');
+  nav.innerHTML = themes.map(t => `
+    <a class="nav-link ${currentFilter === t.id ? 'active' : ''}" href="#" data-theme="${escapeHtml(t.id)}">
+      <span class="theme-dot" style="background:${escapeHtml(t.color || '#7B2FBE')}"></span>
+      ${escapeHtml(t.name)}
+      <span class="sidebar-count">${videos.filter(v => (v.themes||[]).includes(t.id)).length}</span>
+    </a>`).join('');
+
+  // Theme checkbox for add modal
+  const thCb = document.getElementById('themeCheckboxes');
+  thCb.innerHTML = themes.length
+    ? themes.map(t => `
+        <div class="form-check">
+          <input class="form-check-input" type="checkbox" id="th_${t.id}" value="${escapeHtml(t.id)}">
+          <label class="form-check-label small" for="th_${t.id}">
+            <span class="theme-dot me-1" style="background:${escapeHtml(t.color||'#7B2FBE')}"></span>${escapeHtml(t.name)}
+          </label>
+        </div>`).join('')
+    : '<span class="text-muted small">테마가 없습니다. <a href="themes.html">만들기</a></span>';
+
+  // Events
+  document.querySelectorAll('.nav-link[data-theme]').forEach(el => {
+    el.addEventListener('click', e => {
+      e.preventDefault();
+      currentFilter = el.dataset.theme;
+      document.querySelectorAll('.nav-link[data-theme]').forEach(x => x.classList.remove('active'));
+      el.classList.add('active');
+      const labels = { '': '전체 영상', '__fav__': '즐겨찾기', '__none__': '미분류' };
+      document.getElementById('pageTitle').textContent = labels[currentFilter] || themes.find(t => t.id === currentFilter)?.name || '영상';
+      renderVideos();
+    });
+  });
+}
+
+// ── Video Render ──────────────────────────────────────────
+function getFilteredVideos() {
+  let videos = DB.getVideos(session.userId);
+  if (currentFilter === '__fav__')  videos = videos.filter(v => v.isFav);
+  else if (currentFilter === '__none__') videos = videos.filter(v => !v.themes || !v.themes.length);
+  else if (currentFilter) videos = videos.filter(v => (v.themes||[]).includes(currentFilter));
+
+  const q = document.getElementById('headerSearch')?.value?.trim().toLowerCase();
+  if (q) videos = videos.filter(v => v.title.toLowerCase().includes(q) || v.channel.toLowerCase().includes(q));
+
+  if (currentSort === 'newest') videos.sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt));
+  else if (currentSort === 'oldest') videos.sort((a,b) => new Date(a.createdAt) - new Date(b.createdAt));
+  else videos.sort((a,b) => a.title.localeCompare(b.title, 'ko'));
+  return videos;
+}
+
+function renderVideos() {
+  const videos  = getFilteredVideos();
+  const grid    = document.getElementById('videoGrid');
+  const list    = document.getElementById('videoList');
+  const empty   = document.getElementById('emptyState');
+
+  grid.innerHTML = '';
+  list.innerHTML = '';
+
+  if (!videos.length) { empty.classList.remove('d-none'); return; }
+  empty.classList.add('d-none');
+
+  const themes = DB.getThemes(session.userId);
+
+  videos.forEach(v => {
+    const themeNames = (v.themes||[]).map(tid => themes.find(t=>t.id===tid)?.name).filter(Boolean);
+    const themeBadges = themeNames.map(n => `<span class="tag-badge me-1">${escapeHtml(n)}</span>`).join('');
+
+    // Card
+    const col = document.createElement('div');
+    col.className = 'col-sm-6 col-lg-4 col-xl-3';
+    col.innerHTML = `
+      <div class="video-card h-100" onclick="location.href='video.html?id=${v.id}'">
+        <div class="card-actions">
+          <button class="action-btn" onclick="event.stopPropagation();openEdit('${v.id}')" title="수정">
+            <i class="bi bi-pencil"></i>
+          </button>
+          <button class="action-btn" onclick="event.stopPropagation();deleteVideo('${v.id}')" title="삭제">
+            <i class="bi bi-trash"></i>
+          </button>
+        </div>
+        <img class="thumb" src="${escapeHtml(v.thumbnail)}" alt="${escapeHtml(v.title)}"
+             onerror="this.src='https://img.youtube.com/vi/${v.videoId}/mqdefault.jpg'">
+        <div class="card-body">
+          <div class="d-flex align-items-start gap-1 mb-1">
+            ${v.isFav ? '<i class="bi bi-star-fill text-warning flex-shrink-0 mt-1" style="font-size:.8rem"></i>' : ''}
+            ${v.isPublic ? '<i class="bi bi-globe text-success flex-shrink-0 mt-1" style="font-size:.8rem"></i>' : ''}
+          </div>
+          <div class="card-title">${escapeHtml(v.title)}</div>
+          <div class="text-muted small mb-2">${escapeHtml(v.channel)}</div>
+          <div class="mb-1">${themeBadges}</div>
+          <div class="text-muted" style="font-size:.72rem">${formatRelative(v.createdAt)}</div>
+        </div>
+      </div>`;
+    grid.appendChild(col);
+
+    // List item
+    const li = document.createElement('div');
+    li.className = 'video-list-item';
+    li.onclick = () => location.href = `video.html?id=${v.id}`;
+    li.innerHTML = `
+      <img class="list-thumb" src="${escapeHtml(v.thumbnail)}" alt=""
+           onerror="this.src='https://img.youtube.com/vi/${v.videoId}/mqdefault.jpg'">
+      <div class="flex-grow-1 min-w-0">
+        <div class="fw-semibold text-truncate">${escapeHtml(v.title)}</div>
+        <div class="text-muted small">${escapeHtml(v.channel)} · ${formatRelative(v.createdAt)}</div>
+        <div class="mt-1">${themeBadges}</div>
+      </div>
+      <div class="d-flex gap-1 ms-2">
+        ${v.isFav ? '<i class="bi bi-star-fill text-warning"></i>' : ''}
+        <button class="btn btn-sm btn-outline-secondary" onclick="event.stopPropagation();openEdit('${v.id}')"><i class="bi bi-pencil"></i></button>
+        <button class="btn btn-sm btn-outline-danger" onclick="event.stopPropagation();deleteVideo('${v.id}')"><i class="bi bi-trash"></i></button>
+      </div>`;
+    list.appendChild(li);
+  });
+}
+
+// ── View mode ─────────────────────────────────────────────
+function setViewMode(mode) {
+  viewMode = mode;
+  localStorage.setItem('yta_view', mode);
+  document.getElementById('videoGrid').classList.toggle('d-none', mode !== 'card');
+  document.getElementById('videoList').classList.toggle('d-none', mode !== 'list');
+  document.getElementById('btnCard').classList.toggle('active', mode === 'card');
+  document.getElementById('btnList').classList.toggle('active', mode === 'list');
+}
+document.getElementById('btnCard').addEventListener('click', () => { setViewMode('card'); renderVideos(); });
+document.getElementById('btnList').addEventListener('click', () => { setViewMode('list'); renderVideos(); });
+
+// Sort
+document.getElementById('sortSelect').addEventListener('change', e => { currentSort = e.target.value; renderVideos(); });
+
+// Search
+document.getElementById('headerSearch').addEventListener('input', () => renderVideos());
+
+// ── Add Video ─────────────────────────────────────────────
+document.getElementById('fetchMetaBtn').addEventListener('click', async () => {
+  const url = document.getElementById('videoUrl').value.trim();
+  const alert = document.getElementById('addVideoAlert');
+  alert.classList.add('d-none');
+  if (!YTUtil.isValid(url)) {
+    alert.textContent = '유효한 유튜브 URL을 입력해주세요.'; alert.classList.remove('d-none'); return;
+  }
+  const btn = document.getElementById('fetchMetaBtn');
+  btn.disabled = true; btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>로딩...';
+
+  try {
+    fetchedMeta = await YTUtil.fetchMeta(url);
+    document.getElementById('prevThumb').src     = fetchedMeta.thumbnail;
+    document.getElementById('prevTitle').textContent   = fetchedMeta.title;
+    document.getElementById('prevChannel').textContent = fetchedMeta.channel;
+    document.getElementById('videoPreview').classList.remove('d-none');
+    document.getElementById('saveVideoBtn').classList.remove('d-none');
+    btn.classList.add('d-none');
+  } catch (e) {
+    alert.textContent = e.message; alert.classList.remove('d-none');
+    btn.disabled = false; btn.innerHTML = '<i class="bi bi-search me-1"></i>정보 가져오기';
+  }
+});
+
+document.getElementById('saveVideoBtn').addEventListener('click', () => {
+  if (!fetchedMeta) return;
+  const selectedThemes = [...document.querySelectorAll('#themeCheckboxes input:checked')].map(i => i.value);
+  const isPublic = document.querySelector('input[name="visibility"]:checked').value === 'public';
+  DB.addVideo({ ...fetchedMeta, userId: session.userId, themes: selectedThemes, isPublic });
+  bootstrap.Modal.getInstance(document.getElementById('addVideoModal')).hide();
+  resetAddModal();
+  renderSidebar(); renderVideos();
+  showToast('영상이 저장되었습니다!');
+});
+
+// Modal reset
+document.getElementById('addVideoModal').addEventListener('hidden.bs.modal', resetAddModal);
+function resetAddModal() {
+  document.getElementById('videoUrl').value = '';
+  document.getElementById('videoPreview').classList.add('d-none');
+  document.getElementById('addVideoAlert').classList.add('d-none');
+  document.getElementById('fetchMetaBtn').classList.remove('d-none');
+  document.getElementById('fetchMetaBtn').disabled = false;
+  document.getElementById('fetchMetaBtn').innerHTML = '<i class="bi bi-search me-1"></i>정보 가져오기';
+  document.getElementById('saveVideoBtn').classList.add('d-none');
+  document.getElementById('visPrivate').checked = true;
+  document.querySelectorAll('#themeCheckboxes input').forEach(i => i.checked = false);
+  fetchedMeta = null;
+}
+
+// ── Edit Video ────────────────────────────────────────────
+function openEdit(id) {
+  const video  = DB.getVideoById(id);
+  const themes = DB.getThemes(session.userId);
+  if (!video) return;
+
+  document.getElementById('editVideoId').value = id;
+  document.getElementById('editFav').checked = !!video.isFav;
+  document.querySelector(`input[name="editVisibility"][value="${video.isPublic ? 'public' : 'private'}"]`).checked = true;
+
+  const thCb = document.getElementById('editThemeCheckboxes');
+  thCb.innerHTML = themes.length
+    ? themes.map(t => `
+        <div class="form-check">
+          <input class="form-check-input" type="checkbox" id="eth_${t.id}" value="${t.id}"
+                 ${(video.themes||[]).includes(t.id) ? 'checked' : ''}>
+          <label class="form-check-label small" for="eth_${t.id}">
+            <span class="theme-dot me-1" style="background:${escapeHtml(t.color||'#7B2FBE')}"></span>${escapeHtml(t.name)}
+          </label>
+        </div>`).join('')
+    : '<span class="text-muted small">테마 없음</span>';
+
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('editVideoModal')).show();
+}
+
+document.getElementById('saveEditBtn').addEventListener('click', () => {
+  const id     = document.getElementById('editVideoId').value;
+  const themes = [...document.querySelectorAll('#editThemeCheckboxes input:checked')].map(i => i.value);
+  const isPublic = document.querySelector('input[name="editVisibility"]:checked').value === 'public';
+  const isFav  = document.getElementById('editFav').checked;
+  DB.updateVideo(id, { themes, isPublic, isFav });
+  bootstrap.Modal.getInstance(document.getElementById('editVideoModal')).hide();
+  renderSidebar(); renderVideos();
+  showToast('영상 정보가 수정되었습니다.');
+});
+
+// ── Delete Video ──────────────────────────────────────────
+function deleteVideo(id) {
+  showConfirm('이 영상과 관련된 메모, 타임스탬프도 함께 삭제됩니다. 삭제하시겠습니까?', () => {
+    DB.deleteVideo(id);
+    renderSidebar(); renderVideos();
+    showToast('영상이 삭제되었습니다.', 'danger');
+  });
+}
+
+init();
+</script>
+</body>
+</html>

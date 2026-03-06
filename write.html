@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>게시글 작성 - YTArchive</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <link href="css/style.css" rel="stylesheet">
+</head>
+<body>
+
+<nav class="navbar navbar-expand-lg sticky-top">
+  <div class="container-fluid px-4">
+    <a class="navbar-brand" href="index.html"><i class="bi bi-film me-1"></i>YTArchive</a>
+    <div class="d-flex gap-2 ms-auto align-items-center">
+      <a href="community.html" class="btn btn-outline-secondary btn-sm"><i class="bi bi-arrow-left me-1"></i>취소</a>
+      <div id="memberNav" class="d-none dropdown">
+        <button class="btn btn-outline-secondary btn-sm dropdown-toggle" data-bs-toggle="dropdown">
+          <i class="bi bi-person-circle me-1"></i><span id="userNickname"></span>
+        </button>
+        <ul class="dropdown-menu dropdown-menu-end">
+          <li><a class="dropdown-item" href="mypage.html">마이페이지</a></li>
+          <li><a class="dropdown-item text-danger" href="#" onclick="Auth.logout()">로그아웃</a></li>
+        </ul>
+      </div>
+      <div id="guestNav" class="d-none"></div>
+    </div>
+  </div>
+</nav>
+
+<div class="container py-4" style="max-width:760px">
+  <h4 class="fw-bold mb-4" id="pageTitle"><i class="bi bi-pencil-square me-2 text-primary"></i>게시글 작성</h4>
+
+  <div class="bg-white rounded-4 border border-light p-4">
+    <div id="alertBox" class="alert alert-danger d-none mb-3"></div>
+
+    <!-- 제목 -->
+    <div class="mb-3">
+      <label class="form-label fw-semibold">제목 <span class="text-danger">*</span>
+        <span class="text-muted fw-normal">(5~100자)</span>
+      </label>
+      <input type="text" id="postTitle" class="form-control" placeholder="게시글 제목을 입력하세요" maxlength="100">
+    </div>
+
+    <!-- 본문 -->
+    <div class="mb-3">
+      <label class="form-label fw-semibold">
+        본문 <span class="text-danger">*</span>
+        <span class="ms-2 text-muted fw-normal small"><span id="contentLen">0</span>/2000자</span>
+      </label>
+      <textarea id="postContent" class="form-control" rows="10"
+        placeholder="내용을 입력하세요..." maxlength="2000"></textarea>
+    </div>
+
+    <!-- 영상 첨부 -->
+    <div class="mb-3">
+      <label class="form-label fw-semibold">아카이브 영상 첨부 <span class="text-muted fw-normal">(선택)</span></label>
+      <select id="videoSelect" class="form-select">
+        <option value="">영상 선택 안 함</option>
+      </select>
+      <div id="videoPreview" class="d-none mt-2 p-3 bg-light rounded-3">
+        <div class="d-flex gap-2 align-items-center">
+          <img id="prevThumb" src="" alt="" style="width:80px;height:45px;object-fit:cover;border-radius:6px;">
+          <div>
+            <div class="fw-semibold small" id="prevTitle"></div>
+            <div class="text-muted small" id="prevChannel"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 태그 -->
+    <div class="mb-4">
+      <label class="form-label fw-semibold">태그 <span class="text-muted fw-normal">(최대 5개, Enter로 추가)</span></label>
+      <input type="text" id="tagInput" class="form-control" placeholder="태그 입력 후 Enter...">
+      <div id="tagList" class="d-flex flex-wrap gap-1 mt-2"></div>
+    </div>
+
+    <div class="d-flex gap-2 justify-content-end">
+      <a href="community.html" class="btn btn-secondary px-4">취소</a>
+      <button class="btn btn-primary px-5 fw-semibold" id="submitBtn">
+        <i class="bi bi-send me-1"></i>게시
+      </button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script src="js/storage.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/app.js"></script>
+<script>
+const session = Auth.requireAuth();
+if (!session) throw new Error('redirect');
+initHeader(session);
+
+let tags     = [];
+const editId = getParam('id');
+let editPost = null;
+
+if (editId) {
+  editPost = DB.getPostById(editId);
+  if (!editPost || editPost.userId !== session.userId) {
+    alert('권한이 없습니다.'); location.href = 'community.html'; throw new Error();
+  }
+  document.getElementById('pageTitle').innerHTML = '<i class="bi bi-pencil-square me-2 text-primary"></i>게시글 수정';
+  document.getElementById('postTitle').value   = editPost.title;
+  document.getElementById('postContent').value = editPost.content;
+  document.getElementById('contentLen').textContent = editPost.content.length;
+  tags = [...(editPost.tags || [])];
+  renderTags();
+  document.getElementById('submitBtn').innerHTML = '<i class="bi bi-check-lg me-1"></i>수정';
+}
+
+// 본문 글자수
+document.getElementById('postContent').addEventListener('input', e => {
+  document.getElementById('contentLen').textContent = e.target.value.length;
+});
+
+// 영상 선택
+const myVideos = DB.getVideos(session.userId);
+const sel = document.getElementById('videoSelect');
+myVideos.forEach(v => {
+  const opt = document.createElement('option');
+  opt.value = v.id;
+  opt.textContent = v.title.slice(0, 50);
+  if (editPost && editPost.videoId === v.id) opt.selected = true;
+  sel.appendChild(opt);
+});
+
+sel.addEventListener('change', () => {
+  const vid = DB.getVideoById(sel.value);
+  const prev = document.getElementById('videoPreview');
+  if (vid) {
+    document.getElementById('prevThumb').src = vid.thumbnail;
+    document.getElementById('prevTitle').textContent   = vid.title;
+    document.getElementById('prevChannel').textContent = vid.channel;
+    prev.classList.remove('d-none');
+  } else { prev.classList.add('d-none'); }
+});
+
+if (editPost && editPost.videoId) sel.dispatchEvent(new Event('change'));
+
+// 태그
+document.getElementById('tagInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    const val = e.target.value.trim().replace(/^#/, '');
+    if (!val || tags.includes(val) || tags.length >= 5) return;
+    tags.push(val);
+    e.target.value = '';
+    renderTags();
+  }
+});
+
+function renderTags() {
+  document.getElementById('tagList').innerHTML = tags.map((t, i) => `
+    <span class="tag-badge d-inline-flex align-items-center gap-1">
+      #${escapeHtml(t)}
+      <button type="button" class="btn-close" style="font-size:.55rem" onclick="removeTag(${i})"></button>
+    </span>`).join('');
+}
+
+function removeTag(i) { tags.splice(i, 1); renderTags(); }
+
+// 제출
+document.getElementById('submitBtn').addEventListener('click', () => {
+  const title   = document.getElementById('postTitle').value.trim();
+  const content = document.getElementById('postContent').value.trim();
+  const videoId = document.getElementById('videoSelect').value || null;
+  const alertBox = document.getElementById('alertBox');
+  alertBox.classList.add('d-none');
+
+  if (title.length < 5)    { alertBox.textContent = '제목은 5자 이상이어야 합니다.'; alertBox.classList.remove('d-none'); return; }
+  if (title.length > 100)  { alertBox.textContent = '제목은 100자 이하이어야 합니다.'; alertBox.classList.remove('d-none'); return; }
+  if (!content)             { alertBox.textContent = '본문을 입력해주세요.'; alertBox.classList.remove('d-none'); return; }
+  if (content.length > 2000){ alertBox.textContent = '본문은 2000자 이하이어야 합니다.'; alertBox.classList.remove('d-none'); return; }
+
+  if (editId) {
+    DB.updatePost(editId, { title, content, videoId, tags });
+    showToast('게시글이 수정되었습니다.');
+    setTimeout(() => location.href = `post.html?id=${editId}`, 800);
+  } else {
+    const post = DB.addPost({ userId: session.userId, title, content, videoId, tags });
+    showToast('게시글이 등록되었습니다!');
+    setTimeout(() => location.href = `post.html?id=${post.id}`, 800);
+  }
+});
+</script>
+</body>
+</html>
